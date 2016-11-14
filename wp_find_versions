@@ -1,0 +1,62 @@
+#!/bin/bash
+
+###############################################################################
+##
+## Wordpress version finder
+## ========================
+##
+## Brief: Script finds all the wordpress installs and checks there wordpress
+##        version against the latest wordpress release.n
+##
+## Author: Koen Hausmans
+##
+###############################################################################
+
+VERBOSE=""
+while [[ $# -ge 1 ]] ; do
+    case "$1" in
+        -v|--verbose)
+            VERBOSE="true"
+            ;;
+    esac
+    shift
+done
+
+[[ "$VERBOSE" == "true" ]] && echo -e "\e[34mUpdating the mlocate database...\e[0m"
+#sudo updatedb
+
+[[ "$VERBOSE" == "true" ]] && echo -e "\e[34mLocating all wordpress installations...\e[0m"
+WORDPRESS_INSTALLS=$(locate 'wp-includes/version.php')
+
+[[ "$VERBOSE" == "true" ]] && echo -e "\e[34mFound $(echo "$WORDPRESS_INSTALLS" | wc -l) wordpress installs...\e[0m"
+
+VersionCheckInformation=$(curl -s http://api.wordpress.org/core/version-check/1.7/)
+[[ $VersionCheckInformation =~ \"version\":[\w]*\"([0-9.]*)\" ]]
+
+if [[ $? -ne 0 ]] ; then
+    echo -e "\e[31mUnable to retrieve wordpress version from API...\e[0m"
+    exit 1
+fi
+
+LATEST_WORDPRESS_VERSION="${BASH_REMATCH[1]}"
+
+echo -e "\e[34mLatest Stable Wordpress Version = \e[32m$LATEST_WORDPRESS_VERSION\e[0m"
+echo
+
+while read -r WordpressVersionFile ; do
+    WebsiteName=$(echo "$WordpressVersionFile" | sed 's/.*domains\///g' | cut -d '/' -f1)
+
+    if [[ -z "$WebsiteName" ]] ; then
+        echo -e "\e[33mNot a valid site found for $WordpressVersionFile\e[0m"
+        continue
+    fi
+
+    WordpressVersion=$(grep "wp_version =" $WordpressVersionFile | cut -d\' -f2)
+
+    if [[ "$WordpressVersion" != "$LATEST_WORDPRESS_VERSION" ]] ; then
+        echo -e "\e[34m$WebsiteName : \e[31m$WordpressVersion\e[0m"
+    else
+        echo -e "\e[34m$WebsiteName : \e[32m$WordpressVersion\e[0m"
+    fi
+
+done <<< "$WORDPRESS_INSTALLS"
