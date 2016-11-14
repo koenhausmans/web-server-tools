@@ -1,0 +1,127 @@
+#!/bin/bash
+
+###############################################################################
+##
+## Automatic image resizer
+## =======================
+##
+## Brief: This script will find all jpg/png images on a domain that are larger 
+##        than 1 MB and resize them using system tooling.
+##
+## Currently the it will use imagemagick to compress JPG images and use optipng
+## to compress png images.
+##
+## Changelog:
+## ----------
+##   2016-03-30 - Koen Hausmans : Initial version
+##   2016-03-31 - Koen Hausmans : Updated find command to only search for *.jpg
+##        *.jpeg and *.png images
+##   2016-03-31 - Koen Hausmans : Changed file name to lower case to detect all
+##        cases of extensions
+##   2016-04-11 - Koen Hausmans : Changed the script to create a backup and
+##        only compress when no previous backup was found
+##
+###############################################################################
+
+
+JPG_COMPRESSION_QUALITY="75"
+
+## DO NOT CHANGE BELOW
+
+DRY_RUN=false
+WEBSITE_NAME=""
+FILE_SIZE_LIMIT="500k"
+
+for arg in "$@"
+do
+case $arg in
+    -h|--help)
+    echo """
+usage: $0 [-h] [-d] [-l=*] domain-name
+
+Will convert/compress all iamges that are larger than the file size limit using system tooling
+
+required arguments:
+  domain-name      Holds the domain name for which all images will be parsed
+
+optional arguments
+  -h, --help       Shows this help message
+  -d, --dry-run    Does only print the files that will be changed, no copy or compression will be applied
+  -l=*, --limit=*  Will set te file size limit (default: 500k)
+    """
+    exit
+    ;;
+    -d|--dry-run)
+    DRY_RUN=true
+    ;;
+    -l=*|--limit=*)
+    FILE_SIZE_LIMIT="${arg#*=}"
+    ;;
+    *)
+    WEBSITE_NAME=$arg
+    ;;
+esac
+done
+
+
+echo -en "\e[32m"
+echo "======================="
+echo "Automatic image resizer"
+echo "======================="
+echo -e "\e[0m"
+
+
+function calculate_file_difference {
+    ORG=`du $1 | awk -F' ' '{ print $1 }'`
+    COMPRESSED=`du $2 | awk -F' ' '{ print $1 }'`
+    DIFF_PERC=`awk -v s1="$ORG" -v s2="$COMPRESSED" 'BEGIN{print (-s1+s2)/s1 * 100}'`
+    echo "$DIFF_PERC%"
+}
+
+if [ -z "$WEBSITE_NAME" ] ; then
+    echo -e "\e[31mPlease enter a domain as argument\e[0m"
+    exit 1
+fi
+
+website_location=`find /home/clients/*/domains/* -maxdepth 0 -iname "$WEBSITE_NAME" -print 2>/dev/null`
+
+if [ -z $website_location ] ; then
+    echo -e "\e[31mUnable to find domain\e[0m"
+    exit 2
+fi
+
+large_images=`find $website_location -type f -and -size +$FILE_SIZE_LIMIT -and \( -iname "*.jpeg" -or -iname "*.jpg" -or -iname "*.png" \) 2>/dev/null`
+
+for file in $large_images ; do
+    backup_file="$file.bak"
+    lower_case_file=`echo "$file" | tr '[:upper:]' '[:lower:]'`
+    short_filename=`echo $file | sed "s%^$website_location%%"`
+
+    if [ ! -f $backup_file ]
+    then
+    if [[ $lower_case_file == *.jpg || $file == *.jpeg ]] ; then
+        if $DRY_RUN ; then
+        echo "$short_filename : JPEG compression"
+        else
+        cp $file $backup_file
+        convert -strip -interlace Plane -quality $JPG_COMPRESSION_QUALITY% $file $file 2>/dev/null
+        file_diff=`calculate_file_difference $backup_file $file`
+        echo -e "\e[35m$short_filename : Compressed JPG image ($file_diff)\e[0m"
+        fi
+    elif [[ $lower_case_file == *.png ]] ; then
+        if $DRY_RUN ; then
+        echo "$short_filename : PNG compression"
+        else
+        mv $file $backup_file
+        optipng -quiet -o2 -out $file $backup_file
+        file_diff=`calculate_file_difference $backup_file $file`
+        echo -e "\e[34m$short_filename : Compressed PNG image ($file_diff)\e[0m"
+        fi
+    else
+        echo -e "\e[31m$short_filename : Image not supported!\e[0m"
+    fi
+    else
+    echo -e "\e[31m$file : Backup already exists!\e[0m"
+    fi
+done
+

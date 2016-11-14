@@ -1,0 +1,31 @@
+#!/bin/bash
+
+if [ "$EUID" -ne 0 ] ; then
+    echo -e "\e[31mPlease run command as root\e[0m"
+    exit 1
+fi
+
+pushd /usr/local/directadmin/data/users
+
+#for r in `ls */reseller.conf | cut -d/ -f1`; do
+#{
+    r="flyersadmin"
+     echo "fixing Reseller $r ...";
+
+     echo -n '' > $r/users.list
+
+     for u in `grep "^creator=$r$" */user.conf | cut -d/ -f1`; do
+     {
+         ISUSER=`grep -c usertype=user $u/user.conf`
+         if [ "$ISUSER" = "1" ]; then
+             echo $u >> $r/users.list
+         fi
+     };
+     done;
+#};
+
+popd
+
+echo "Updating the users cache in DirectAdmin"
+echo "action=cache&value=showallusers" >> /usr/local/directadmin/data/task.queue
+

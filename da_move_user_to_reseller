@@ -1,0 +1,65 @@
+#!/bin/bash
+
+###############################################################################
+##
+## Moves DirectAdmin users from one reseller to another
+## =====================================================
+##
+## Brief: This script will move a user to a new reseller in DirectAdmin
+##
+## The script is based on:
+## https://help.directadmin.com/item.php?id=93
+##
+## Changelog:
+## ----------
+##   2016-07-21 - Koen Hausmans : Initial version
+##
+###############################################################################
+
+echo -en "\e[32m"
+echo "========================================"
+echo "Move DirectAdmin users to a new reseller"
+echo "========================================"
+echo -e "\e[0m"
+
+if [ $# -ne 2 ] ; then
+    echo -e "\e[31mNo arguments supplied, requires two arguments: Username and NewResellerName\e[0m"
+    exit 1
+fi
+
+USERNAME="$1"
+NEW_RESELLER_NAME="$2"
+
+if [ "$EUID" -ne 0 ] ; then
+    echo -e "\e[31mPlease run command as root\e[0m"
+    exit 1
+fi
+
+pushd /usr/local/directadmin/data/users > /dev/null
+
+OLD_RESELLER=`find . -maxdepth 2 -iname users.list | xargs grep -l $USERNAME`
+echo "The old reseller is found at: $OLD_RESELLER"
+
+echo "Creating backup of users file"
+cp $OLD_RESELLER $OLD_RESELLER.bak2
+
+sed -i.bak "/$USERNAME/d" $OLD_RESELLER
+
+echo "Setting new username for reseller $NEW_RESELLER_NAME"
+echo $USERNAME >> ./$NEW_RESELLER_NAME/users.list
+
+echo "Changing creator for user $USERNAME"
+cp $USERNAME/user.conf $USERNAME/user.conf.bak2
+sed -i.bak -e "s/creator=.*/creator=$NEW_RESELLER_NAME/g" $USERNAME/user.conf
+
+for line in $(find $USERNAME/domains -iname "*.conf" ) ; do
+    echo "Changing creator for domain in: $line"
+    cp $line $line.bak2
+    sed -i.bak -e "s/creator=.*/creator=$NEW_RESELLER_NAME/g" $line
+done
+
+popd > /dev/null
+
+echo "Updating the users cache in DirectAdmin"
+echo "action=cache&value=showallusers" >> /usr/local/directadmin/data/task.queue
+

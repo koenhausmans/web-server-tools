@@ -1,0 +1,147 @@
+#!/bin/bash
+
+###############################################################################
+##
+## Add mailboxes to a specific mail address for spam learning purposes
+## ===================================================================
+##
+## Brief: This script will automatically create spam folders for an email
+##        address and setup a learning script that teaches SpamAssassin what
+##        mail should be considerd spam and what not.
+##
+## The script is based on:
+## https://help.directadmin.com/item.php?id=358
+##
+## Changelog:
+## ----------
+##   2016-07-21 - Koen Hausmans : Initial version
+##
+###############################################################################
+
+echo -en "\e[32m"
+echo "==============================="
+echo "Spam Learning scripts installer"
+echo "==============================="
+echo -e "\e[0m"
+
+if [ -z $1 ] ; then
+    echo -en "\e[34mEnter the mail address:\e[0m " && read mail_address
+else
+    mail_address="$1"
+fi
+echo
+
+mail_name=`echo $mail_address | awk -F'@' '{print $1}'`
+domain=`echo $mail_address | awk -F'@' '{print $2}'`
+
+domain_location=`find /home/clients/*/imap/* -maxdepth 0 -iname "*$domain*" -print`
+
+if [ -z "$domain_location" ] ; then
+    echo -e "\e[31mNo website found for this mail address\e[0m"
+    exit 1
+fi
+
+number_of_lines=`echo "$domain_location" | wc -l`
+if [ "$number_of_lines" -ge 2 ] ; then
+    echo -e "\e[31mMultiple domains found for the given mail address (unexpected error)...\e[0m"
+    exit 1
+fi
+
+full_path="$domain_location/$mail_name/Maildir"
+if [ ! -d "$full_path" ] ; then
+    echo -e "\e[31mMultiple domains found for the given mail address (unexpected error)...\e[0m"
+    exit 1
+fi
+
+pushd $full_path
+
+mkdir ".INBOX.Is Geen Spam"
+mkdir ".INBOX.Is Spam"
+
+FILE_OWNER=`ls -l subscriptions | awk '{print $3}'`
+chown -R $FILE_OWNER:mail .INBOX.*
+chmod 0770 .INBOX.*
+
+echo "INBOX.Is Geen Spam" >> subscriptions
+echo "INBOX.Is Spam" >> subscriptions
+
+popd
+
+mkdir -p /home/clients/$FILE_OWNER/.spamassassin/
+
+cat > /home/clients/$FILE_OWNER/.spamassassin/teach.sh <<EOL
+#!/bin/sh
+
+DA_USER=$FILE_OWNER
+DA_HOME=/home/clients/\${DA_USER}
+
+#set this to 1 if you want the spam be removed after the run
+DELETE_TEACH_DATA=0
+
+learn_Maildir()
+{
+    echo "Starting to scan mailbox (\${1})"
+            FILESPAM="\${1}/.INBOX.Is Spam"
+            FILEHAM="\${1}/.INBOX.Is Geen Spam"
+
+            if [ -e "\${FILESPAM}/new" ] || [ -e "\${FILESPAM}/cur" ]; then
+                        echo "learning spam via \${FILESPAM}...";
+                        sa-learn --no-sync --spam  "\${FILESPAM}/{cur,new}"
+            fi
+
+            if [ -e "\${FILEHAM}/new" ] || [ -e "\${FILEHAM}/cur" ]; then
+                        echo "";
+                        echo "learning ham via \$FILEHAM...";
+                        sa-learn --no-sync --ham "\${FILEHAM}/{cur,new}"
+            fi
+
+     if [ "\$DELETE_TEACH_DATA" -eq 1 ]; then
+         rm -f "\${FILESPAM}/new/*" "\${FILESPAM}/cur/*"
+         rm -f "\${FILEHAM}/new/*" "\${FILEHAM}/cur/*"
+     fi
+}
+
+#if [ -e \$DA_HOME/Maildir ]; then
+     #learn_Maildir \$DA_HOME/Maildir
+#fi
+
+for d in \`ls "\$DA_HOME/imap"\`; do
+{
+            DOMAIN_DIR="\${DA_HOME}/imap/\${d}"
+            echo "Checking \$DOMAIN_DIR for spam learning data"
+            if [ -h "\$DOMAIN_DIR" ]; then
+                        continue;
+            fi
+
+            for maildir in \`find \${DOMAIN_DIR} -type d -iname "Maildir" 2>/dev/null\`; do
+            {
+                learn_Maildir "\${maildir}"
+            };
+            done;
+};
+done;
+
+echo "";
+echo "syncing...";
+sa-learn --sync
+
+echo "";
+echo "current status:"
+sa-learn --dump magic
+
+exit 0;
+
+EOL
+
+chmod 0700 /home/clients/$FILE_OWNER/.spamassassin/teach.sh
+chown $FILE_OWNER:web /home/clients/$FILE_OWNER/.spamassassin/teach.sh
+
+echo
+echo -e "\e[31mSuccessfully installed scripts, remaining task: Create cronjob in DirectAdmin\e[0m"
+echo "Use the following settings:"
+echo "Minute:  $(( RANDOM % 60 ))"
+echo "Hour:    */12"
+echo "DoM:     *"
+echo "Month:   *"
+echo "DoW:     *"
+echo "Command: /home/clients/$FILE_OWNER/.spamassassin/teach.sh"

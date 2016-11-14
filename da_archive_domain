@@ -1,0 +1,39 @@
+#!/bin/bash
+
+###############################################################################
+##
+## Automatic domain archiver
+## ================================
+##
+## Brief: This script will automatically archive a domain and store its data on
+##        a remote fileserver.
+##
+## Currently the it will perform the following steps:
+## --------------------------------------------------
+##  * Database backup
+##     - Read database settings from either WordPress or EasyPublish installation
+##     - Create full backup of database
+##  * Copy all files from public_html and backup them
+##  * Copy all mail files and backup them
+##  * Cleanup everything on file system:
+##     - Remove domain from DirectAdmin
+##     - Remove files from filesystem
+##     - Drop the database
+##     - Check whether /var/named/ file has been removed
+##     - Check whether /usr/local/directadmin/data/users/ has been cleaned
+##  * If necessary: Remove the user from DirectAdmin if no domains are anymore available
+##
+## Script arguments:
+## -----------------
+## The following values can be given as command arguments:
+##  * Domain name : The domain that will be archived
+##  * Client name : Will be used to organize the backups on the file server
+##
+## Changelog:
+## ----------
+##   2016-03-31 - Koen Hausmans : Written documentation about steps it should
+##        perform
+##
+###############################################################################
+
+echo -e "\e[31mNot implemented yet...\e[0m"
