@@ -2,8 +2,8 @@
 
 ###############################################################################
 ##
-## QLIPP: Checks Wordpress installation for changes compared to latest WP
-## ======================================================================
+## Checks Wordpress installation for changes compared to latest WP
+## ===============================================================
 ##
 ## Brief: Script downloads and checks for differences compared to the latest
 ##        WordPress installation
