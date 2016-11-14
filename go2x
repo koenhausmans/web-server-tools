@@ -1,0 +1,149 @@
+#!/bin/bash
+
+###############################################################################
+##
+## Quick navigation to anything
+## ============================
+##
+## Brief: Script which provides a shortcut in navigating to a specific seach
+##        path
+##
+## Installation by adding an alias in the .bashrc file (Assuming binaries are
+## in search path):
+##   `alias go2x='. go2x'`
+##
+## Author: Koen Hausmans
+##
+###############################################################################
+
+# Default settings
+
+SEARCH_PATH="./"
+QUERY=""
+
+## DO NOT CHANGE BELOW
+
+# Argument parsing
+function show_help() {
+    echo """
+usage: $0 --search-path=PATH QUERY
+
+arguments:
+  -s [PATH], --search-path=[PATH]
+                 Sets the search path for which the fuzzy navigation will take place
+  -h, --help     Shows this help
+"""
+    exit
+}
+
+while [[ $# -ge 1 ]] ; do
+    case "$1" in
+        -h|--help)
+            show_help
+            exit
+            ;;
+        -s|--search-path)
+            SEARCH_PATH="$2"
+            shift
+            ;;
+        -s=*|--search-path=*)
+            SEARCH_PATH="${1#*=}"
+            ;;
+        *)
+            [[ ! -z "$QUERY" ]] && show_help
+            QUERY="$1"
+            ;;
+    esac
+    shift
+done
+
+# Check for valid arguments
+ShouldStopSearch=""
+if [[ -z "$QUERY" ]] ; then
+    echo -e "\e[31mPlease enter a query to be used!\e[0m"
+    ShouldStopSearch="true"
+fi
+
+SearchPathExists=`find ${SEARCH_PATH} -maxdepth 0 -type d 2>&1 > /dev/null`
+if [[ -z "$SEARCH_PATH" || $? -ne 0 ]] ; then
+    echo -e "\e[31mInvalid search path entered!\e[0m"
+    ShouldStopSearch="true"
+fi
+
+## Helper functions
+
+# convert_query_to_fuzzy: Adds wildcard (.*) between every character
+function convert_query_to_fuzzy() {
+    echo "$1" | sed 's|.|\0.*|g'
+}
+
+# highlight_fuzzy_result: Highlights the character of the query in order with a bright color
+function highlight_fuzzy_result() {
+    Result="$1"
+    Query="$2"
+
+    j=0
+    for (( i=0; i < ${#Result}; i++ )) ; do
+        # Use different substring for ZSH for compatibility issues, there might be an easier solution?
+        # Using shell tooling (cut / expr substr / etc.) is too slow...
+        if [[ -n "$ZSH_VERSION" ]] ; then
+            CurResultChar="$Result[(($i + 1))]"
+            CurQueryChar="$Query[(($j + 1))]"
+        else
+            CurResultChar="${Result:${i}:1}"
+            CurQueryChar="${Query:${j}:1}"
+        fi
+
+        if [[ "$CurResultChar" == "$CurQueryChar" ]] ; then
+            ((j++))
+            echo -en "\e[31m$CurResultChar\e[0m"
+        else
+            echo -n "$CurResultChar"
+        fi
+    done
+    echo
+}
+
+if [[ "$ShouldStopSearch" != "true" ]] ; then
+    # Find locations given the search path and the query
+    FuzzyQuery=`convert_query_to_fuzzy "$QUERY"`
+    Locations=`find ${SEARCH_PATH} -maxdepth 1 -type d -exec basename {} \; | grep -i "$FuzzyQuery"`
+
+    NumberOfResults=`wc -w <<< "$Locations"`
+
+    # No results found, show error
+    if [[ "$NumberOfResults" -eq "0" ]] ; then
+        echo -e "\e[31mNo result found that matches query\e[0m"
+    fi
+
+    # Single result, navigate to directory
+    SelectedFolder=""
+    if [[ "$NumberOfResults" -eq "1" ]] ; then
+        SelectedFolder="$Locations"
+    fi
+
+    # Multiple results, show list and allow for a selection
+    if [[ "$NumberOfResults" -ge "2" ]] ; then
+        MatchCounter=0
+        while read -r location ; do
+            (( MatchCounter++ ))
+            echo -en "\e[34m$MatchCounter.\e[0m "
+            highlight_fuzzy_result "$location" "$QUERY"
+        done <<< "$Locations"
+
+        echo -n "Enter desired result: "
+        read selected
+
+        test "$selected" -ge 1 -a "$selected" -le "$NumberOfResults" 2>&-
+        if [[ $? -ne 0 ]] ; then
+            echo -e "\e[31mInvalid number entered\e[0m"
+        else
+            SelectedFolder=$(echo "$Locations" | sed -n "${selected}p")
+        fi
+    fi
+
+    # Navigate to the selected folder, if there was a selection
+    if [[ ! -z "$SelectedFolder" ]] ; then
+        cd $(find $SEARCH_PATH -maxdepth 1 -type d -iname "$SelectedFolder")
+    fi
+fi
