@@ -1,51 +1,22 @@
 #!/bin/bash
 
-if [ -z $1 ] ; then
-	echo -en "\e[31m"
-	echo "Please enter a user to be located!"
-	echo -en "\e[0m"
-else
+###############################################################################
+##
+## Quick navigation to users on a DirectAdmin based webserver
+## ==========================================================
+##
+## Brief: Allows for fuzzy navigation towards users on a DirectAdmin based
+##        webserver
+##
+## Installation by adding an alias in the .bashrc file (Assuming binaries are
+## in search path):
+##   `alias go2user='. go2user'`
+##
+## Author: Koen Hausmans
+##
+###############################################################################
 
-	#echo "Finding site \"$1\""
+BASEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-	website_location=`find /home/clients/* -maxdepth 0 -iname "*$1*" -print`
+. $BASEDIR/go2x -s=/home/clients/ "$@"
 
-	number_of_lines=`echo "$website_location" | wc -l`
-
-	if [ -z "$website_location" ] ; then
-		echo -en "\e[31m"
-		echo "No user found"
-		echo -en "\e[0m"
-	elif [ "$number_of_lines" -ge 2 ] ; then
-		i=1
-		website_list=("")
-		while read -r line ; do
-			domain_name=`echo "$line" | awk -F/ '{print $NF}'`
-			echo -en "\e[33m"
-			echo -e $(( i++ ))".\e[0m\t$domain_name"
-
-			website_list+=("$line")
-#			echo -e "$i. \t$line"
-		done <<< "$website_location"
-
-		echo -n "Number of desired users: "
-		read selected
-
-		#if [[ ${website_list[$selected]} ]] ; then
-		test "$selected" -ge 1 -a "$selected" -le "$number_of_lines" 2>&-
-		if [ $? -ne 0 ] ; then #-o "$selected" -le 0 -o "$selected" -gt "$number_of_lines" ] ; then
-			echo -en "\e[31m"
-			echo "Invalid number entered"
-			echo -en "\e[0m"
-		else
-			selected_website_location=${website_list[$selected]}
-			#echo "$selected_website_location"
-			cd $selected_website_location
-		fi
-	else
-		cd $website_location
-		#echo "$website_location"
-
-	fi
-	
-fi
