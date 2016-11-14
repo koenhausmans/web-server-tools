@@ -1,0 +1,77 @@
+#!/bin/bash
+
+###############################################################################
+##
+## QLIPP: Connecto to Wordpress Database
+## =====================================
+##
+## Brief: This script will automatically connect to a wordpress database by
+##        reading the wp-config.php file and connecting to the mysql database
+##
+## Changelog:
+## ----------
+##   2016-04-06 - Koen Hausmans : Initial version
+##
+###############################################################################
+
+VERBOSE=""
+ADDITIONAL_COMMANDS=()
+while [[ $# -ge 1 ]] ; do
+    case "$1" in
+    -v|--verbose)
+        VERBOSE="true"
+        ;;
+    -h|--help)
+        echo -e """
+usage: \e[33m$(basename $0)\e[0m -v -e \"query\"
+
+Connects to the mysql database using the information found in the wordpress config.
+It recursivel tries to find the config file by searching for \"wp-config.php\" in the current folder.
+Additional arguments to the mysql can be supplied as arguments to the command.
+
+\e[32;2mArguments:\e[0m
+  -v|--verbose  Shows the received mysql information from the wordpress config file
+  -h|--help     Shows this help message
+
+\e[32mExamples:\e[0m
+  - \e[34m\`wp_connent2db\`\e[0m
+    Connect to the mysql database
+
+  - \e[34m\`wp_connect2db --execute=\"SELECT 'Hello World' AS Message;\"\`\e[0m
+    Executes the SELECT command through the mysql database
+
+  - \e[34m\`echo \"SELECT 'Hello World' AS Message;\" | wp_connect2db\`\e[0m
+    Executes the SELECT command through the mysql database in batch mode
+"""
+        exit
+        ;;
+    *)
+        ADDITIONAL_COMMANDS+=("$1")
+        ;;
+    esac
+    shift
+done
+
+[[ "$VERBOSE" == "true" ]] && echo "Searching for wordpress config file..."
+
+WORDPRESS_CONFIG=`find ${PWD} -iname wp-config.php | head -1 2>/dev/null`
+
+if [[ -z "$WORDPRESS_CONFIG" ]]; then
+    echo -e "\e[31;1mCannot find wordpress config file.\e[0;31m Is the command execute from the public_html folder of a wordpress site?\e[0m"
+    exit
+fi
+
+DB_NAME=`cat $WORDPRESS_CONFIG | grep 'DB_NAME' | awk -F"'" '{ print $4 }'`
+DB_USER=`cat $WORDPRESS_CONFIG | grep 'DB_USER' | awk -F"'" '{ print $4 }'`
+DB_PASSWORD=`cat $WORDPRESS_CONFIG | grep 'DB_PASSWORD' | awk -F"'" '{ print $4 }'`
+
+if [[ "$VERBOSE" == "true" ]] ; then
+    echo
+    echo "Found wordpress configuration file with following information:"
+    echo -e "\e[34mDatabase\e[0m = $DB_NAME"
+    echo -e "\e[34mUsername\e[0m = $DB_USER"
+    echo -e "\e[34mPassword\e[0m = $DB_PASSWORD"
+fi
+
+mysql --user="$DB_USER" --password="$DB_PASSWORD" $DB_NAME "${ADDITIONAL_COMMANDS[@]}"
+

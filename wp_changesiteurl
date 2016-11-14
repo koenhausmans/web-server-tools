@@ -1,0 +1,18 @@
+#!/bin/bash
+
+###############################################################################
+##
+## QLIPP: Connecto to Wordpress Database
+## =====================================
+##
+## Brief: This script will automatically change the wordpress site URL
+##
+###############################################################################
+
+echo -en "\e[34mWhat's the new site URL? \e[0m" && read url
+
+wp_connect2db -e "UPDATE wp_options SET option_value=\"${url}\" WHERE option_name='siteurl'" > /dev/null
+wp_connect2db -e "UPDATE wp_options SET option_value=\"${url}\" WHERE option_name='home'" > /dev/null
+
+echo -e "\e[32mSuccessfully updated domain\e[0m"
+

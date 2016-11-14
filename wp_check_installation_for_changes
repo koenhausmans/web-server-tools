@@ -1,0 +1,115 @@
+#!/bin/bash
+
+###############################################################################
+##
+## QLIPP: Checks Wordpress installation for changes compared to latest WP
+## ======================================================================
+##
+## Brief: Script downloads and checks for differences compared to the latest
+##        WordPress installation
+##
+## Changelog:
+## ----------
+##   2016-07-26 - Koen Hausmans : Initial version
+##
+###############################################################################
+
+VERBOSE=""
+while [[ $# -ge 1 ]] ; do
+    case "$1" in
+        -v|--verbose)
+            VERBOSE="true"
+            ;;
+    esac
+    shift
+done
+
+WORDPRESS_FOLDER=$(dirname -- "$(find $PWD -iname 'wp-config.php' 2> /dev/null)")
+
+if [[ "$VERBOSE" == "true" ]] ; then
+    echo "Found wordpress installation: $WORDPRESS_FOLDER"
+fi
+
+WORDPRESS_VERSION="$(cat $WORDPRESS_FOLDER/readme* | grep "Version" | cut -d ' ' -f 4)"
+
+if [[ "$VERBOSE" == "true" ]] ; then
+    echo "Found wordpress version: $WORDPRESS_VERSION"
+fi
+
+WORDPRESS_DOWNLOAD_LINK="https://wordpress.org/wordpress-$WORDPRESS_VERSION.tar.gz"
+
+TMPDIR=`mktemp -d -t wordpress.XXXXXXXXXX`
+if [ $? -ne 0 ] ; then
+    echo -e "\e[31mCannot create temporary directory\e[0m"
+    exit 1
+fi
+
+if [[ "$VERBOSE" == "true" ]] ; then
+    echo "Created a temporary directory: $TMPDIR"
+fi
+
+
+pushd $TMPDIR > /dev/null
+
+echo -e "\e[34mDownloading latest wordpress release:\e[0m"
+curl --progress-bar -o wordpress-files.tar.gz $WORDPRESS_DOWNLOAD_LINK
+
+if [ $? -ne 0 ] ; then
+    echo -e "\e[31mCannot download latest wordpress installation\e[0m"
+    exit 1
+fi
+
+echo -e "\e[34mUnpacking the wordpress installation from the archive...\e[0m"
+tar xfz wordpress-files.tar.gz
+
+rm wordpress-files.tar.gz
+
+popd > /dev/null
+
+# Start recursively checking all files
+
+LATEST_WORDPRESS="$TMPDIR/wordpress"
+WEBSITE_FOLDER=$(dirname -- "$(find $PWD -iname 'wp-config.php' 2> /dev/null)")
+
+echo
+echo -e "\e[34mStarting comparison between installation and source files...\e[0m"
+diff -r $WEBSITE_FOLDER $LATEST_WORDPRESS > wordpress-comparison.log
+echo "Comparison output written to file 'wordpress-comparison.log'"
+
+echo
+echo "Do you want to show the output here [y/n]? "
+read -n 1 -r
+echo
+echo
+
+if [[ $REPLY  =~ ^[Yy]$ ]] ; then
+    echo -e "\e[34mStarting comparison of folders...\e[0m"
+
+    diff_output="$(diff -r $WEBSITE_FOLDER $LATEST_WORDPRESS | grep $WEBSITE_FOLDER)"
+
+    echo "$diff_output" | while read -r line
+    do
+        if $(echo "$line" | grep "Only in $WEBSITE_FOLDER" > /dev/null)
+        then
+            folder_length=$((${#WEBSITE_FOLDER} + 9))
+            file_name=$(echo "${line:$folder_length}" | sed -e "s%: %/%g")
+            echo -e "\e[35mThe following file is only in the website\e[0m: $file_name"
+        fi
+
+        if $(echo "$line" | grep "diff -r" > /dev/null)
+        then
+            website_file=$(echo "$line" | awk '{ print $3 }')
+            original_file=$(echo "$line" | awk '{ print $4 }')
+
+            inspected_file=$(echo "${website_file:${#WEBSITE_FOLDER}}")
+
+            echo -e "\e[36mChecking difference for file\e[0m: $inspected_file"
+            diff $website_file $original_file
+        fi
+        echo
+    done
+fi
+
+# Cleanup
+rm -rf $TMPDIR
+
