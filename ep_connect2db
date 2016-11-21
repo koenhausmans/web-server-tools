@@ -1,0 +1,28 @@
+#!/bin/bash
+
+###############################################################################
+##
+## Connecto to PostgreSql Database using EasyPublish settings
+## ==========================================================
+##
+## Brief: This script will automatically connect to a postgresql database by
+##        reading settings from a easypublish configuration file
+##
+## Changelog:
+## ----------
+##   2016-04-06 - Koen Hausmans : Initial version
+##   2016-11-21 - Koen Hausmans : Fixed the old documentation and renamed some
+##                                variables
+###############################################################################
+
+CONFIG=`find . -iname EP_config.php 2>/dev/null`
+
+DB_NAME=`cat $CONFIG | grep "'DB'" | awk -F"'" '{ print $4 }'`
+DB_USER=`cat $CONFIG | grep "'DBUSER'" | awk -F"'" '{ print $4 }'`
+DB_PASSWORD=`cat $CONFIG | grep "'DBPASS'" | awk -F"'" '{ print $4 }'`
+
+echo -e "\e[34mDatabase\e[0m = $DB_NAME"
+echo -e "\e[34mUsername\e[0m = $DB_USER"
+echo -e "\e[34mPassword\e[0m = $DB_PASSWORD"
+
+psql $DB_NAME $DB_USER "$*"
