@@ -54,6 +54,7 @@ while read -r WordpressVersionFile ; do
     WordpressVersion=$(grep "wp_version =" $WordpressVersionFile | cut -d\' -f2)
 
     if [[ "$WordpressVersion" != "$LATEST_WORDPRESS_VERSION" ]] ; then
+        [[ "$VERBOSE" == "true" ]] && echo -n "$WordpressVersionFile: "
         echo -e "\e[34m$WebsiteName : \e[31m$WordpressVersion\e[0m"
     else
         echo -e "\e[34m$WebsiteName : \e[32m$WordpressVersion\e[0m"
