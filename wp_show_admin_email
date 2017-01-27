@@ -4,6 +4,16 @@ DirectAdminMysqlConfigFile="/usr/local/directadmin/conf/mysql.conf"
 
 ## DO NOT CHANGE BELOW
 
+VERBOSE=""
+while [[ $# -ge 1 ]] ; do
+    case "$1" in
+        -v|--verbose)
+            VERBOSE="true"
+            ;;
+    esac
+    shift
+done
+
 MysqlConfig=$(sudo cat "$DirectAdminMysqlConfigFile")
 
 MysqlUser=$(echo "$MysqlConfig" | tail -n 2 | head -n 1 | awk -F'=' '{ printf $2 }')
@@ -21,7 +31,10 @@ do
     AdminUrl=$( execute_query "SELECT * FROM wp_options WHERE option_name='admin_email' LIMIT 1" "${database}" 2> /dev/null | tail -n 1 | awk '{ printf $3 }' )
 
     if [[ ! -z "$AdminUrl" ]] ; then
-        echo "$database  ->  $SiteUrl: $AdminUrl"
+        if [[ "$VERBOSE" == "true" ]] ; then
+            echo -n "$database  ->  "
+        fi
+        echo "$SiteUrl: $AdminUrl"
     fi
 done
 
