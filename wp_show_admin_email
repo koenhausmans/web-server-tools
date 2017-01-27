@@ -1,0 +1,27 @@
+#!/bin/bash
+
+DirectAdminMysqlConfigFile="/usr/local/directadmin/conf/mysql.conf"
+
+## DO NOT CHANGE BELOW
+
+MysqlConfig=$(sudo cat "$DirectAdminMysqlConfigFile")
+
+MysqlUser=$(echo "$MysqlConfig" | tail -n 2 | head -n 1 | awk -F'=' '{ printf $2 }')
+MysqlPass=$(echo "$MysqlConfig" | tail -n 1 | awk -F'=' '{ printf $2 }')
+
+function execute_query() {
+    mysql --silent -u "${MysqlUser}" --password="${MysqlPass}" --execute="$1" $2
+}
+
+Databases=$(execute_query "SHOW DATABASES" "" | tail -n +3)
+
+for database in $Databases
+do
+    SiteUrl=$( execute_query "SELECT * FROM wp_options WHERE option_name='siteurl' LIMIT 1" "${database}" 2> /dev/null | tail -n 1 | awk '{ printf $3 }' )
+    AdminUrl=$( execute_query "SELECT * FROM wp_options WHERE option_name='admin_email' LIMIT 1" "${database}" 2> /dev/null | tail -n 1 | awk '{ printf $3 }' )
+
+    if [[ ! -z "$AdminUrl" ]] ; then
+        echo "$database  ->  $SiteUrl: $AdminUrl"
+    fi
+done
+
