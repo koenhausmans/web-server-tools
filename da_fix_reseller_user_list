@@ -10,18 +10,18 @@ pushd /usr/local/directadmin/data/users
 #for r in `ls */reseller.conf | cut -d/ -f1`; do
 #{
     r="flyersadmin"
-     echo "fixing Reseller $r ...";
+    echo "fixing Reseller $r ...";
 
-     echo -n '' > $r/users.list
+    echo -n '' > $r/users.list
 
-     for u in `grep "^creator=$r$" */user.conf | cut -d/ -f1`; do
-     {
-         ISUSER=`grep -c usertype=user $u/user.conf`
-         if [ "$ISUSER" = "1" ]; then
-             echo $u >> $r/users.list
-         fi
-     };
-     done;
+    for u in `grep "^creator=$r$" */user.conf | cut -d/ -f1`; do
+        {
+            ISUSER=`grep -c usertype=user $u/user.conf`
+            if [ "$ISUSER" = "1" ]; then
+                echo $u >> $r/users.list
+            fi
+        };
+    done;
 #};
 
 popd
