@@ -1,0 +1,66 @@
+#!/bin/bash
+
+###############################################################################
+##
+## WP - Backup domain with Gdrive sync
+## ===================================
+##
+## Brief: Script creates a backup of the files and databases and synchronizes
+##        the archive to a Google Drive backup folder
+##
+## Uses https://github.com/prasmussen/gdrive for gdrive command line tooling
+##
+## Author: Koen Hausmans
+##
+###############################################################################
+
+set -euo pipefail
+IFS=$'\n\t'
+
+## Configuration
+
+# Contains the Gdrive ID for the apollo.flyers.nl backup folder
+GdriveFolder="0B9Uwov_LgR5PbV9taXVFWFU0NDg"
+
+TaskQueue="/usr/local/directadmin/data/task.queue"
+BackupFolder="/home/admin/admin_backups"
+
+##  === DO NOT CHANGE BELOW ===
+
+# Checking for root permissions
+if [ "$EUID" -ne 0 ] ; then
+    echo -e "\e[31mPlease run command as root\e[0m"
+    exit 1
+fi
+
+# User Input: select user to backup
+UserName=${1:-}
+
+if [[ -z "$UserName" ]] ; then
+    echo -en "\e[34mEnter username\e[0m: " && read UserName
+fi
+
+if [[ ! -d "/home/clients/${UserName}" ]] ; then
+    echo -e "\e[31mUnable to find user: ${UserName}\e[0m"
+    exit 1
+fi
+
+# Write backup task to DirectAdmin queue
+echo "action=backup&append%5Fto%5Fpath=nothing&database%5Fdata%5Faware=yes&email%5Fdata%5Faware=yes&local%5Fpath=%2Fhome%2Fadmin%2Fadmin%5Fbackups&owner=koen&select%30=${UserName}&type=admin&value=multiple&when=now&where=local" >> ${TaskQueue}
+
+echo -e "\e[34mStarting DirectAdmin backup...\e[0m"
+/usr/local/directadmin/dataskq d
+
+echo -e "\e[34mFinished with backup...\e[0m"
+
+echo -e "\e[34mPrefixing backup with timestamp...\e[0m"
+
+BackupName="$(date +%Y%m%d_%H%M%S)_${UserName}.tar.gz"
+( cd "${BackupFolder}" && mv *${UserName}*.tar.gz "$BackupName" )
+
+echo -e "\e[34mStarting upload to Google Drive...\e[0m"
+gdrive upload -p ${GdriveFolder} "${BackupFolder}/${BackupName}"
+
+echo -e "\e[34mRemoving local backup...\e[0m"
+rm "${BackupFolder}/${BackupName}"
+
