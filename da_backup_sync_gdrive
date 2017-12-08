@@ -64,8 +64,7 @@ if [[ -z "$UserName" ]] ; then
 fi
 
 if [[ ! -d "/home/clients/${UserName}" ]] ; then
-    echo -e "\e[31mUnable to find user: ${UserName}\e[0m"
-    exit 1
+    fail "Unable to find user: \e[1m${UserName}\e[0m"
 fi
 
 # Write backup task to DirectAdmin queue
@@ -95,7 +94,7 @@ gdrive upload -p ${GdriveFolder} "${BackupName}"
 
 user "Do you want to remove the local backup? [Y/n] "
 read -n 1 action
-echo
+echo ''
 
 if [[ "$action" =~ ^[yY] ]]
 then
