@@ -23,7 +23,7 @@ while [[ $# -ge 1 ]] ; do
 done
 
 [[ "$VERBOSE" == "true" ]] && echo -e "\e[34mUpdating the mlocate database...\e[0m"
-#sudo updatedb
+sudo updatedb
 
 [[ "$VERBOSE" == "true" ]] && echo -e "\e[34mLocating all wordpress installations...\e[0m"
 WORDPRESS_INSTALLS=$(locate 'wp-includes/version.php')
