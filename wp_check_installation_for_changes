@@ -30,7 +30,7 @@ if [[ "$VERBOSE" == "true" ]] ; then
     echo "Found wordpress installation: $WORDPRESS_FOLDER"
 fi
 
-WORDPRESS_VERSION="$(cat $WORDPRESS_FOLDER/readme* | grep "Version" | cut -d ' ' -f 4)"
+WORDPRESS_VERSION="$(cat $WORDPRESS_FOLDER/wp-includes/version.php | grep "^\$wp_version" | cut -d "'" -f 2)"
 
 if [[ "$VERBOSE" == "true" ]] ; then
     echo "Found wordpress version: $WORDPRESS_VERSION"
@@ -51,7 +51,7 @@ fi
 
 pushd $TMPDIR > /dev/null
 
-echo -e "\e[34mDownloading latest wordpress release:\e[0m"
+echo -e "\e[34mDownloading wordpress release $WORDPRESS_VERSION:\e[0m"
 curl --progress-bar -o wordpress-files.tar.gz $WORDPRESS_DOWNLOAD_LINK
 
 if [ $? -ne 0 ] ; then
