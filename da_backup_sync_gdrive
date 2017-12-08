@@ -21,23 +21,46 @@ IFS=$'\n\t'
 
 # Contains the Gdrive ID for the apollo.flyers.nl backup folder
 GdriveFolder="0B9Uwov_LgR5PbV9taXVFWFU0NDg"
+# Backups
+GdriveFolder="1HTl3MJ-mG8qCpqpWlo8B6agWiG028irL"
+# Backups/apollo.flyers.nl
+GdriveFolder="1CIBoQjK5xhmm62ZcPk3hjvk_OPGmvrej"
 
 TaskQueue="/usr/local/directadmin/data/task.queue"
 BackupFolder="/home/admin/admin_backups"
 
 ##  === DO NOT CHANGE BELOW ===
 
+info () {
+    printf "\r  [ \033[00;34m..\033[0m ] $1\n"
+}
+
+user () {
+    printf "\r  [ \033[0;33m??\033[0m ] $1"
+}
+
+success () {
+    printf "\r\033[2K  [ \033[00;32mOK\033[0m ] $1\n"
+}
+
+fail () {
+    printf "\r\033[2K  [\033[0;31mFAIL\033[0m] $1\n"
+    echo ''
+    exit
+}
+
+
 # Checking for root permissions
 if [ "$EUID" -ne 0 ] ; then
-    echo -e "\e[31mPlease run command as root\e[0m"
-    exit 1
+    fail "Please run command as root"
 fi
 
 # User Input: select user to backup
 UserName=${1:-}
 
 if [[ -z "$UserName" ]] ; then
-    echo -en "\e[34mEnter username\e[0m: " && read UserName
+    user "Enter username: "
+    read UserName < /dev/tty
 fi
 
 if [[ ! -d "/home/clients/${UserName}" ]] ; then
@@ -48,19 +71,37 @@ fi
 # Write backup task to DirectAdmin queue
 echo "action=backup&append%5Fto%5Fpath=nothing&database%5Fdata%5Faware=yes&email%5Fdata%5Faware=yes&local%5Fpath=%2Fhome%2Fadmin%2Fadmin%5Fbackups&owner=koen&select%30=${UserName}&type=admin&value=multiple&when=now&where=local" >> ${TaskQueue}
 
-echo -e "\e[34mStarting DirectAdmin backup...\e[0m"
-/usr/local/directadmin/dataskq d
+info "Starting DirectAdmin backup"
+/usr/local/directadmin/dataskq d > /tmp/directadmin_backup.log
 
-echo -e "\e[34mFinished with backup...\e[0m"
+if [[ $? -ne 0 ]]
+then
+    cat /tmp/directadmin_backup.log
+    fail "Error while backing up from DirectAdmin"
+fi
 
-echo -e "\e[34mPrefixing backup with timestamp...\e[0m"
+success "Finished with backup"
+
+info "Prefixing backup with timestamp"
+
+pushd "${BackupFolder}" > /dev/null
 
 BackupName="$(date +%Y%m%d_%H%M%S)_${UserName}.tar.gz"
-( cd "${BackupFolder}" && mv *${UserName}*.tar.gz "$BackupName" )
 
-echo -e "\e[34mStarting upload to Google Drive...\e[0m"
-gdrive upload -p ${GdriveFolder} "${BackupFolder}/${BackupName}"
+mv user.*${UserName}.tar.gz "$BackupName"
 
-echo -e "\e[34mRemoving local backup...\e[0m"
-rm "${BackupFolder}/${BackupName}"
+info "Starting upload to Google Drive"
+gdrive upload -p ${GdriveFolder} "${BackupName}"
+
+user "Do you want to remove the local backup? [Y/n] "
+read -n 1 action
+echo
+
+if [[ "$action" =~ ^[yY] ]]
+then
+    info "Removing local backup"
+    rm "${BackupName}"
+fi
+
+popd > /dev/null
 
