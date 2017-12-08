@@ -1,0 +1,38 @@
+#!/bin/bash
+
+###############################################################################
+##
+## Automatically unpacks gzip-ed log files
+##
+###############################################################################
+
+OUTPUT_FOLDER="logs"
+
+i=0
+
+for arg in "$@"
+do
+case $arg in
+    -h|--help)
+    echo """
+usage: $0 [-o [output-folder]] [file-list]
+
+required arguments:
+  file-list      Contains all the files that should be unpacked
+
+optional arguments
+  -h, --help          Shows this help message
+  -o=[OUTPUT_FOLDER]  Contains the folder name in which everything will be unpacked
+    """
+    exit
+    ;;
+    -o=*)
+    OUTPUT_FOLDER="${arg#*=}"
+    ;;
+    *)
+    mkdir -p $OUTPUT_FOLDER/$i
+    tar xfz $arg -C "$OUTPUT_FOLDER/$i"
+    (( i++ ))
+    ;;
+esac
+done
