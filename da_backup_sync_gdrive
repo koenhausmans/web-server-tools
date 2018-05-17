@@ -8,6 +8,9 @@
 ## Brief: Script creates a backup of the files and databases and synchronizes
 ##        the archive to a Google Drive backup folder
 ##
+## The search location for websites can be customized by using the
+## DA_USER_ROOT_FOLDER environment variable.
+##
 ## Uses https://github.com/prasmussen/gdrive for gdrive command line tooling
 ##
 ## Author: Koen Hausmans
@@ -25,6 +28,8 @@ GdriveFolder="0B9Uwov_LgR5PbV9taXVFWFU0NDg"
 GdriveFolder="1HTl3MJ-mG8qCpqpWlo8B6agWiG028irL"
 # Backups/apollo.flyers.nl
 GdriveFolder="1CIBoQjK5xhmm62ZcPk3hjvk_OPGmvrej"
+# Backups/deimos.qlipp.nl
+GDriveFolder="1Bbldbn3sNelMHBYvjPPv1KbTNkSOguea"
 
 TaskQueue="/usr/local/directadmin/data/task.queue"
 BackupFolder="/home/admin/admin_backups"
@@ -63,7 +68,9 @@ if [[ -z "$UserName" ]] ; then
     read UserName < /dev/tty
 fi
 
-if [[ ! -d "/home/clients/${UserName}" ]] ; then
+DaUserRootFolder=${DA_USER_ROOT_FOLDER:-/home}
+
+if [[ ! -d "${DaUserRootFolder}/${UserName}" ]] ; then
     fail "Unable to find user: \e[1m${UserName}\e[0m"
 fi
 

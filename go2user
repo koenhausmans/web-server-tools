@@ -12,11 +12,16 @@
 ## in search path):
 ##   `alias go2user='. go2user'`
 ##
+## The search location can be customized by using the DA_USER_ROOT_FOLDER
+## environment variable.
+##
 ## Author: Koen Hausmans
 ##
 ###############################################################################
 
 BASEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-. $BASEDIR/go2x -s=/home/clients/ "$@"
+DaUserRootFolder=${DA_USER_ROOT_FOLDER:-/home}
+
+. $BASEDIR/go2x -s=${DaUserRootFolder}/ "$@"
 
